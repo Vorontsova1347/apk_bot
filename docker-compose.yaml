@@ -1,0 +1,59 @@
+version: '2.1'
+
+services:
+  ci_gateway:
+    image: 'ci_gateway:1.0.0'
+    build: ./ci_getaway/
+    container_name: ci_getaway
+    ports:
+      - '8080:8080'
+    depends_on:
+      - ci_gateway_db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ci_gateway_db:5432/compose-postgres
+      - SPRING_DATASOURCE_USERNAME=compose-postgres
+      - SPRING_DATASOURCE_PASSWORD=compose-postgres
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 5s
+      timeout: 5s
+      retries: 2
+
+  ci_gateway_db:
+    image: 'postgres:13.1-alpine'
+    container_name: db
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=compose-postgres
+      - POSTGRES_PASSWORD=compose-postgres
+
+  apk_telegram_bot:
+    image: 'apk_telegram_bot:1.0.1'
+    build: ./apk_telegram_bot/
+    container_name: apk_telegram_bot
+    ports:
+      - '8090:8080'
+    depends_on:
+      - apk_telegram_bot_db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://apk_telegram_bot_db:5432/compose-postgres
+      - SPRING_DATASOURCE_USERNAME=compose-postgres
+      - SPRING_DATASOURCE_PASSWORD=compose-postgres
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 5s
+      timeout: 5s
+      retries: 2
+
+  apk_telegram_bot_db:
+    image: 'postgres:13.1-alpine'
+    container_name: apk_telegram_bot_db
+    ports:
+      - '5433:5432'
+    environment:
+      - POSTGRES_USER=compose-postgres
+      - POSTGRES_PASSWORD=compose-postgres
+

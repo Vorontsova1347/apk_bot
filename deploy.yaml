@@ -1,0 +1,233 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apk-bot-env
+data:
+  CI_GATEWAY_URL: "http://ci_gateway:8080/"
+  LOCALE_TAG: "ru-RU"
+  TELEGRAM_BOT_PATH: "https//83e3-188-235-32-210.ngrok.io"
+  TELEGRAM_BOT_USERNAME: "auto_apk_bot"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: apk-bot-db-token
+type: Opaque
+stringData:
+  TELEGRAM_BOT_TOKEN: "5940213784:AAHZ5iqTCqkpup_7uPe94dPPRmnmmPfPKeE"
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ci-gateway-env
+data:
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  CODEMAGIC_URL: "https://api.codemagic.io"
+  DEFAULT_BRANCH: "main"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ci-gateway-db-secret
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_PASSWORD: "compose-postgres"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://ci_gateway_db:5432/compose-postgres"
+  SPRING_DATASOURCE_USERNAME: "compose-postgres"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ci-gateway-token
+type: Opaque
+stringData:
+  CODEMAGIC_API_KEY: "ArdX-V9PC0-iGMNmrayv4LrW_h3oHIETuID_oBGk9R8"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apk-bot-controller
+spec:
+  replicas: 3
+  selector:
+    name: apk-bot
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: apk-bot
+    spec:
+      containers:
+        - name: apk-bot
+          image: anshelen/microservices-gateway:latest
+          envFrom:
+            - configMapRef:
+                name: urls-config
+          env:
+            - name: SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: msvc-secret
+                  key: secret
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-gateway
+spec:
+  replicas: 3
+  selector:
+    name: apk-bot
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        tier: gateway
+    spec:
+      containers:
+        - name: gateway
+          image: anshelen/microservices-gateway:latest
+          envFrom:
+            - configMapRef:
+                name: urls-config
+          env:
+            - name: SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: msvc-secret
+                  key: secret
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+
+---
+
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: postgres-pv-volume
+  labels:
+    type: local
+    app: postgres
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/mnt/data"
+
+---
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: postgres-pv-claim
+  labels:
+    app: postgres
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+
+kind: Deployment
+apiVersion: extensions/v1
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:10.4
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: postgres-config
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgredb
+      volumes:
+        - name: postgredb
+          persistentVolumeClaim:
+            claimName: postgres-pv-claim
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  type: NodePort
+  ports:
+    - port: 5432
+  selector:
+    app: postgres
+
+
+
+
