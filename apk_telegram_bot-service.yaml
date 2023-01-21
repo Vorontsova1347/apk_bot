@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    bot-service: apk-telegram-bot
+  name: apk_telegram_bot
+spec:
+  ports:
+    - name: "8098"
+      port: 8098
+      targetPort: 8080
+  selector:
+    bot-service: apk-telegram-bot
+status:
+  loadBalancer: {}

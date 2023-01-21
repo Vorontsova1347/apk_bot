@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    bot-service: apk-telegram-bot
+  name: apk-telegram-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      bot-service: apk-telegram-bot
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        apk-telegram-bot-ci-gateway: "true"
+        bot-service: apk-telegram-bot
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: ci-gateway-env
+        - env:
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: apk-bot-token
+                  key: TELEGRAM_BOT_TOKEN
+#        - env:
+#            - name: CI_GATEWAY_URL
+#              value: http://ci_gateway:8080/
+#            - name: LOCALE_TAG
+#              value: ru-RU
+#            - name: SPRING_DATASOURCE_PASSWORD
+#              value: compose-postgres
+#            - name: SPRING_DATASOURCE_URL
+#              value: jdbc:postgresql://apk_telegram_bot_db:5432/compose-postgres
+#            - name: SPRING_DATASOURCE_USERNAME
+#              value: compose-postgres
+#            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+#              value: update
+#            - name: TELEGRAM_BOT_PATH
+#              value: https//83e3-188-235-32-210.ngrok.io
+#            - name: TELEGRAM_BOT_TOKEN
+#              value: JXqp20kuWkTp4K08N1ubV8okfLwOM8db7YJs79hnMxQ
+#            - name: TELEGRAM_BOT_USERNAME
+#              value: auto_apk_bot
+          image: apk_telegram_bot:1.0.1
+          livenessProbe:
+            exec:
+              command:
+                - curl --fail --silent localhost:8080/actuator/health | grep UP || exit 1
+            failureThreshold: 5
+            periodSeconds: 20
+            timeoutSeconds: 5
+          name: apk-telegram-bot
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              memory: "1024Mi"
+              cpu: "500m"
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+      restartPolicy: Always

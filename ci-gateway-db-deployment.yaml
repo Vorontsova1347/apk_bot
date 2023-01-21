@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    bot-service: ci-gateway-db
+  name: ci-gateway-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      bot-service: ci-gateway-db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        ci-gateway-internal: "true"
+        bot-service: ci-gateway-db
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-db-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-db-secret
+                  key: SPRING_DATASOURCE_URL
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-db-secret
+                  key: SPRING_DATASOURCE_USERNAME
+          image: postgres:13.1-alpine
+          livenessProbe:
+            exec:
+              command:
+                - 'pg_isready -U $POSTGRES_USER -d $POSTGRES_DB'
+            failureThreshold: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          name: db
+          ports:
+            - containerPort: 5432
+          resources: {}
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: ci-gateway-db-pgdata
+      restartPolicy: Always
+      volumes:
+        - name: ci-gateway-db-pgdata
+          persistentVolumeClaim:
+            claimName: ci-gateway-db-pgdata

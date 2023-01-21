@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apk-bot-env
+data:
+  CI_GATEWAY_URL: "http://ci_gateway:8080/"
+  LOCALE_TAG: "ru-RU"
+  TELEGRAM_BOT_PATH: "https//83e3-188-235-32-210.ngrok.io"
+  TELEGRAM_BOT_USERNAME: "auto_apk_bot"

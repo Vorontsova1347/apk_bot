@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    bot-service: ci-gateway
+  name: ci-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      bot-service: ci-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        apk-telegram-bot-ci-gateway: "true"
+        ci-gateway-internal: "true"
+        bot-service: ci-gateway
+    spec:
+      containers:
+          envFrom:
+            - configMapRef:
+                name: apk-bot-env
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-db-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-db-secret
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-db-secret
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: CODEMAGIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ci-gateway-token
+                  key: CODEMAGIC_API_KEY
+          image: ci_gateway:1.0.0
+          livenessProbe:
+            exec:
+              command:
+                - curl --fail --silent localhost:8080/actuator/health | grep UP || exit 1
+            failureThreshold: 5
+            periodSeconds: 20
+            timeoutSeconds: 5
+          name: ci-getaway
+          resources:
+            limits:
+              memory: "1024Mi"
+              cpu: "500m"
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+      restartPolicy: Always
