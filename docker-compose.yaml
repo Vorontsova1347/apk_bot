@@ -1,12 +1,10 @@
-version: '2.1'
+version: '3.0'
 
 services:
   ci_gateway:
     image: 'ci_gateway:1.0.0'
     build: ./ci_getaway/
     container_name: ci_getaway
-    ports:
-      - '8080:8080'
     depends_on:
       - ci_gateway_db
     environment:
@@ -14,11 +12,17 @@ services:
       - SPRING_DATASOURCE_USERNAME=compose-postgres
       - SPRING_DATASOURCE_PASSWORD=compose-postgres
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - CODEMAGIC_URL=https://api.codemagic.io
+      - DEFAULT_BRANCH=main
+      - CODEMAGIC_API_KEY=ArdX-V9PC0-iGMNmrayv4LrW_h3oHIETuID_oBGk9R8
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
-      interval: 5s
+      test: "curl --fail --silent localhost:8080/actuator/health | grep UP || exit 1"
+      interval: 20s
       timeout: 5s
-      retries: 2
+      retries: 5
+    networks:
+      apk_telegram_bot_ci_gateway:
+      ci_gateway_internal:
 
   ci_gateway_db:
     image: 'postgres:13.1-alpine'
@@ -26,34 +30,46 @@ services:
     ports:
       - '5432:5432'
     environment:
+      - POSTGRES_DB=compose-postgres
       - POSTGRES_USER=compose-postgres
       - POSTGRES_PASSWORD=compose-postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ci_gateway_db_pgdata:/var/lib/postgresql/data
+    networks:
+      ci_gateway_internal:
 
   apk_telegram_bot:
     image: 'apk_telegram_bot:1.0.1'
     build: ./apk_telegram_bot/
     container_name: apk_telegram_bot
     ports:
-      - '8090:8080'
-    depends_on:
-      - apk_telegram_bot_db
+      - '8098:8080'
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://apk_telegram_bot_db:5432/compose-postgres
       - SPRING_DATASOURCE_USERNAME=compose-postgres
       - SPRING_DATASOURCE_PASSWORD=compose-postgres
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - TELEGRAM_BOT_TOKEN=JXqp20kuWkTp4K08N1ubV8okfLwOM8db7YJs79hnMxQ
+      - CI_GATEWAY_URL=http://ci_gateway:8080/
+      - LOCALE_TAG=ru-RU
+      - TELEGRAM_BOT_PATH=https//83e3-188-235-32-210.ngrok.io
+      - TELEGRAM_BOT_USERNAME=auto_apk_bot
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
-      interval: 5s
+      test: "curl --fail --silent localhost:8080/actuator/health | grep UP || exit 1"
+      interval: 20s
       timeout: 5s
-      retries: 2
+      retries: 5
+    networks:
+      apk_telegram_bot_ci_gateway:
+volumes:
+  ci_gateway_db_pgdata:
+networks:
+  ci_gateway_internal:
+  apk_telegram_bot_ci_gateway:
 
-  apk_telegram_bot_db:
-    image: 'postgres:13.1-alpine'
-    container_name: apk_telegram_bot_db
-    ports:
-      - '5433:5432'
-    environment:
-      - POSTGRES_USER=compose-postgres
-      - POSTGRES_PASSWORD=compose-postgres
 
